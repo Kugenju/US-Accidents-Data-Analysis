@@ -61,6 +61,39 @@ ggplot(data,aes(x = Severity, y = `Temperature(F)`)) +
   geom_violin() 
 
 
+#End_Time-Start_Time ----influence on traffic flow----measured by interval(seconds)
+library(lubridate)
+?lubridate
+starttime <- data$Start_Time
+endtime <- data$End_Time
+se.interval <- interval(start = starttime, end = endtime)
+se.length <- int_length(se.interval)   
+summary(se.length)
+
+#试图探索车祸对交通的影响时长和严重程度关系,画个含凹槽的箱线图。
+#若两个箱的凹槽互不重叠，则表明它们的中位数有显著差异
+#varwidth=TRUE则使箱线图的宽度与它们各自的样本大小成正比
+boxplot(se.length ~ data$Severity, data = Severity.Length,
+        notch = TRUE,
+        varwidth = TRUE,
+        col = "red",
+        main = "影响交通时长与严重程度",
+        xlab = "严重程度",
+        ylab = "影响交通时长")
+
+#秒为单位是不是太小，换成分钟试试
+min.length <- se.length/60
+minsl <- data.frame(data$Severity, min.length)
+boxplot(min.length ~ data$Severity, data = minsl,
+        notch = TRUE,
+        varwidth = TRUE,
+        col = "red",
+        main = "影响时长与严重程度",
+        xlab = "严重程度",
+        ylab = "影响时长")
+
+#月份、小时作为变量，探究与severity、影响时长的关系（聚类、分类、参考书）
+
 
 
 
