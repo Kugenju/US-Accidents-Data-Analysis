@@ -50,6 +50,8 @@ ggplot(data,aes(x = Wind_Direction)) +
 ggplot(data,aes(x = Side)) +
   geom_bar()
 
+#使用bar观察到了不同时区的事故发生数有明显的不同是否有什么因素
+#导致了这一现象
 ggplot(data, aes(x = Timezone)) +
   geom_bar()
 
@@ -61,9 +63,73 @@ ggplot(data,aes(x = Severity, y = `Temperature(F)`)) +
   geom_violin() 
 
 
+#End_Time-Start_Time ----influence on traffic flow----measured by interval(seconds)
+library(lubridate)
+?lubridate
+starttime <- data$Start_Time
+endtime <- data$End_Time
+se.interval <- interval(start = starttime, end = endtime)
+se.length <- int_length(se.interval)   
+summary(se.length)
+
+#试图探索车祸对交通的影响时长和严重程度关系,画个含凹槽的箱线图。
+#若两个箱的凹槽互不重叠，则表明它们的中位数有显著差异
+#varwidth=TRUE则使箱线图的宽度与它们各自的样本大小成正比
+boxplot(se.length ~ data$Severity, data = Severity.Length,
+        notch = TRUE,
+        varwidth = TRUE,
+        col = "red",
+        main = "影响交通时长与严重程度",
+        xlab = "严重程度",
+        ylab = "影响交通时长")
+
+#秒为单位是不是太小，换成分钟试试
+min.length <- se.length/60
+minsl <- data.frame(data$Severity, min.length)
+boxplot(min.length ~ data$Severity, data = minsl,
+        notch = TRUE,
+        varwidth = TRUE,
+        col = "red",
+        main = "影响时长与严重程度",
+        xlab = "严重程度",
+        ylab = "影响时长")
+
+#月份、小时作为变量，探究与severity、影响时长的关系（聚类、分类、参考书
 
 
 
+int <- sample(2,nrow(data),replace = TRUE,prob = c(0.01,0.99))
+traindata <- data[int == 1, ]
+testdata <-  data[int == 2, ]
 
+
+library(stats)
+#对气候变量进行一个聚类分析
+#获取需要聚类的变量
+varibles <- traindata[,.(`Temperature(F)`,`Humidity(%)`,`Pressure(in)`,`Visibility(mi)`,`Wind_Speed(mph)`)]
+#对变量进行标准化
+scaled.varibles <-scale(varibles)
+
+
+library(cluster)
+set.seed(1234)
+fit.pam <- pam(scaled.varibles,k = 4,stand = TRUE)
+fit.pam$medoids
+
+
+library(factoextra)
+set.seed(123)
+fviz_nbclust(scaled.varibles, kmeans, method = "wss") +
+  geom_vline(xintercept = 4, linetype = 2)
+
+km.res <- kmeans(scaled.varibles,4,nstart = 25)
+km.res$size
+km.res$centers
+plot(varibles, col = km.res$cluster, pch = 19, 
+     main = "K-means with k = 4")
+points(km.res$centers, col = 1:2, pch = 8, cex = 3)
+
+aggregate(varibles, by=list(cluster=km.res$cluster), mean)
+fviz_cluster(km.res, data = cluster)
 
 
