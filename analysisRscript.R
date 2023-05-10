@@ -1,6 +1,7 @@
 library(readxl)
 library(data.table)
 data <- fread("US_Accidents_Dec21_updated.csv")
+setwd('C:/Users/Etoiles/Desktop/数据科学与数据分析/US-Accidents-Data-Analysis')
 #吹爆这个fread函数不仅读入数据比老师介绍的快的多
 #还直接把start_time与end_time直接读入为POSIXct模式
 data <- data.table(data)
@@ -50,6 +51,8 @@ ggplot(data,aes(x = Wind_Direction)) +
 ggplot(data,aes(x = Side)) +
   geom_bar()
 
+#使用bar观察到了不同时区的事故发生数有明显的不同是否有什么因素
+#导致了这一现象
 ggplot(data, aes(x = Timezone)) +
   geom_bar()
 
@@ -92,11 +95,72 @@ boxplot(min.length ~ data$Severity, data = minsl,
         xlab = "严重程度",
         ylab = "影响时长")
 
-#月份、小时作为变量，探究与severity、影响时长的关系（聚类、分类、参考书）
+
+#列联表
+mytable <- xtabs(~V1, data=Severity.Length)
+mytable
+#severity=2的数据太多
+
+#月份、小时作为变量，探究与severity、影响时长的关系（聚类、分类)
+library(lubridate)
+mon <- month(starttime, label = T)
+mon_severity <- data.frame(cbind(Month = mon, Severity = data$Severity))
+library(ggplot2)
+
+ggplot(mon_severity, aes(x = Month, y = Severity))+
+  geom_violin()
+#发现11月，12月，1月异常——这三个月的车祸严重程度在Severity=1上没有分布
+#猜测与冬天气温、天气等有关
+
+#月份和天气的关系
+attach(data)
+mon_temp <- data.frame(cbind(month = mon, temp = data$`Temperature(F)`))
+ggplot(mon_temp, aes(x=as.factor(month), y=temp))+
+  geom_boxplot()
+
+#月份和可见度的关系
+mon_vis <- data.frame(cbind(month = mon, visibility = data$`Visibility(mi)`))
+ggplot(mon_vis, aes(x=as.factor(month), y=visibility))+
+  geom_boxplot()+
+  coord_cartesian(ylim = c(0,50))
+#11,12,1月可见度确实比其他低
 
 
 
 
 
+int <- sample(2,nrow(data),replace = TRUE,prob = c(0.01,0.99))
+traindata <- data[int == 1, ]
+testdata <-  data[int == 2, ]
+
+
+library(stats)
+#对气候变量进行一个聚类分析
+#获取需要聚类的变量
+varibles <- traindata[,.(`Temperature(F)`,`Humidity(%)`,`Pressure(in)`,`Visibility(mi)`,`Wind_Speed(mph)`)]
+#对变量进行标准化
+scaled.varibles <-scale(varibles)
+
+
+library(cluster)
+set.seed(1234)
+fit.pam <- pam(scaled.varibles,k = 4,stand = TRUE)
+fit.pam$medoids
+
+
+library(factoextra)
+set.seed(123)
+fviz_nbclust(scaled.varibles, kmeans, method = "wss") +
+  geom_vline(xintercept = 4, linetype = 2)
+
+km.res <- kmeans(scaled.varibles,4,nstart = 25)
+km.res$size
+km.res$centers
+plot(varibles, col = km.res$cluster, pch = 19, 
+     main = "K-means with k = 4")
+points(km.res$centers, col = 1:2, pch = 8, cex = 3)
+
+aggregate(varibles, by=list(cluster=km.res$cluster), mean)
+fviz_cluster(km.res, data = cluster)
 
 
