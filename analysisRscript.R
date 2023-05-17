@@ -164,3 +164,53 @@ aggregate(varibles, by=list(cluster=km.res$cluster), mean)
 fviz_cluster(km.res, data = cluster)
 
 
+
+# 政策管制因素
+# While all states share basic driving rules, such as
+# driving on the right side of the road, 
+# there are other differences like:
+# 1.speed limits,
+# 2.safety requirements----alcohol, seatbelt
+# 3.insurance minimums,
+# 4.vehicle registration regulations.
+
+library(readxl)
+drivelaw <- read_excel("drivelaw.xlsx")
+drivelaw$Var1 <- as.factor(drivelaw$`POSTAL ABBREVIATION`)
+drivelaw <- drivelaw[,-2]
+state.ac <- as.data.frame(table(data$State))
+state.law <- as.data.frame(cbind(state.ac, drivelaw))
+state.law <- state.law[,-c(5,6,11)]
+
+#因子-->数值
+library(forcats)
+state.law$ALCOHOL <- as.numeric(fct_collapse(state.law$ALCOHOL,
+                  "0"="No",
+                  "2"="Permanent",
+                  "1"=c("2 Years","3 Years","Annual","Annual or Single Trip")))
+state.law$SEATBELT <- as.numeric(fct_collapse(state.law$`SEAT BELT Primary enforcement?`,
+                                                           "0"=c("no","no law"),
+                                                           "1"="yes"))
+state.law$CarR <- as.numeric(fct_collapse(state.law$`Car Registration Required?`,
+                                                                      "0"="no",
+                                                                      "1"="yes"))
+state.law <- state.law[,-c(7,8)]
+colnames(state.law) <- c("abbr","count","fullname","alcohol","speedlim","insurancemin","seatbelt","carregis")
+
+#poisson regression
+attach(state.law)
+fit <- glm(count ~ alcohol + speedlim + insurancemin + seatbelt + carregis, 
+           data=state.law, family=poisson())
+summary(fit)
+exp(coef(fit))
+
+#解释模型参数
+# 1.对驾车携带酒类的管制越宽松的州，发生交通事故越频繁---符合常识
+# 2.限速越高的州，发生交通事故越频繁---符合常识
+
+# 3.强制最低保险费用越高的的州，发生交通事故越频繁---符合常识
+#一般来说，最低保险费用分为上路的基本费用和额外费用，保险费用高是因为包含了medical coverage等等
+#而人口稀少的地区往往保险费用低，人口密集、交通流量大的地方保险费用高
+
+# 4.强制安全带的州，发生交通事故越频繁---难道是因为事故频繁所以强制安全带？
+# 5.要求汽车信息登记的州，发生交通事故越频繁---难道是因为事故频繁所以强制信息登记？
